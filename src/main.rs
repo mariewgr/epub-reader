@@ -1,6 +1,10 @@
 use clap::{Parser, Subcommand};
 use epub::doc::EpubDoc;
 
+mod app;
+mod event;
+mod tui;
+mod ui;
 #[derive(Parser)]
 #[command(name = "epub-reader", about = "A terminal epub reader")]
 struct Cli {
@@ -57,39 +61,37 @@ fn main() {
         }
         Commands::Read { file, chapter } => {
             let mut doc = EpubDoc::new(&file).expect("Failed to open epub file");
-            println!(
-                "Title:  {}",
-                doc.mdata("title")
-                    .map(|item| item.value.clone())
-                    .unwrap_or("Unknown".to_string())
-            );
-            println!();
 
-            match chapter {
+            let content = match chapter {
                 Some(n) => {
                     doc.set_current_chapter(n - 1);
-                    if let Some((html, _mime)) = doc.get_current_str() {
-                        let text = strip_html(&html);
-                        println!("{}", text.trim());
-                    }
+                    doc.get_current_str()
+                        .map(|(html, _)| strip_html(&html))
+                        .unwrap_or_default()
                 }
                 None => {
+                    let mut all = String::new();
                     for i in 0..doc.get_num_chapters() {
                         doc.set_current_chapter(i);
-                        if let Some((html, _mime)) = doc.get_current_str() {
-                            println!("--- Chapter {} ---", i + 1);
-                            let text = strip_html(&html);
-                            let trimmed = text.trim();
-                            let preview: String = trimmed.chars().take(500).collect();
-                            println!("{}", preview);
-                            if trimmed.len() > 500 {
-                                println!("...");
-                            }
-                            println!();
+                        if let Some((html, _)) = doc.get_current_str() {
+                            all.push_str(&format!("=== Chapter {} ===\n", i + 1));
+                            all.push_str(&strip_html(&html));
+                            all.push_str("\n\n");
                         }
                     }
+                    all
                 }
+            };
+
+            let mut app = app::App::new(content);
+            let mut terminal = tui::enter().expect("Failed to start TUI");
+
+            while !app.should_quit {
+                terminal.draw(|frame| ui::draw(frame, &app)).unwrap();
+                event::handle_events(&mut app).unwrap();
             }
+
+            tui::exit().expect("Failed to restore terminal");
         }
     }
 }
