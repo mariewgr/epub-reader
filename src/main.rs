@@ -83,7 +83,8 @@ fn main() {
                 }
             };
 
-            let mut app = app::App::new(content);
+            let (width, _) = crossterm::terminal::size().unwrap_or((80, 24));
+            let mut app = app::App::new(content, (width as usize).saturating_sub(2));
             let mut terminal = tui::enter().expect("Failed to start TUI");
 
             while !app.should_quit {
