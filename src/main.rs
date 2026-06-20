@@ -59,37 +59,30 @@ fn main() {
             );
             println!("Chapters: {}", doc.get_num_chapters());
         }
-        Commands::Read { file, chapter } => {
+        Commands::Read { file, chapter: _ } => {
             let mut doc = EpubDoc::new(&file).expect("Failed to open epub file");
 
-            let content = match chapter {
-                Some(n) => {
-                    doc.set_current_chapter(n - 1);
-                    doc.get_current_str()
-                        .map(|(html, _)| strip_html(&html))
-                        .unwrap_or_default()
-                }
-                None => {
-                    let mut all = String::new();
-                    for i in 0..doc.get_num_chapters() {
-                        doc.set_current_chapter(i);
-                        if let Some((html, _)) = doc.get_current_str() {
-                            all.push_str(&format!("=== Chapter {} ===\n", i + 1));
-                            all.push_str(&strip_html(&html));
-                            all.push_str("\n\n");
-                        }
-                    }
-                    all
-                }
-            };
+            let mut chapter_titles: Vec<String> = Vec::new();
+            let mut chapter_contents: Vec<String> = Vec::new();
+
+            for i in 0..doc.get_num_chapters() {
+                doc.set_current_chapter(i);
+                chapter_titles.push(format!("Chapter {}", i + 1));
+                let content = doc
+                    .get_current_str()
+                    .map(|(html, _)| strip_html(&html))
+                    .unwrap_or_default();
+                chapter_contents.push(content);
+            }
 
             let (width, _) = crossterm::terminal::size().unwrap_or((80, 24));
-            let mut app = app::App::new(content, (width as usize).saturating_sub(2));
+            let reader_width = (width as usize).saturating_sub(27);
+            let mut app = app::App::new(chapter_contents, reader_width, chapter_titles);
             let mut terminal = tui::enter().expect("Failed to start TUI");
 
             while !app.should_quit {
                 terminal.draw(|frame| ui::draw(frame, &app)).unwrap();
-                event::handle_events(&mut app).unwrap();
+                event::handle_events(&mut app, reader_width).unwrap();
             }
 
             tui::exit().expect("Failed to restore terminal");

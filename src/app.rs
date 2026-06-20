@@ -2,16 +2,35 @@ pub struct App {
     pub lines: Vec<String>,
     pub scroll: usize,
     pub should_quit: bool,
+    pub chapters: Vec<String>,
+    pub chapter_contents: Vec<String>,
+    pub selected_chapter: usize,
+    pub focus: Focus,
+}
+
+#[derive(PartialEq)]
+pub enum Focus {
+    Chapters,
+    Reader,
 }
 
 impl App {
-    pub fn new(content: String, width: usize) -> Self {
-        let lines = Self::wrap_lines(&content, width);
+    pub fn new(chapter_contents: Vec<String>, width: usize, chapters: Vec<String>) -> Self {
+        let lines = Self::wrap_lines(&chapter_contents[0], width);
         App {
             lines,
             scroll: 0,
             should_quit: false,
+            chapters,
+            chapter_contents,
+            selected_chapter: 0,
+            focus: Focus::Reader,
         }
+    }
+
+    pub fn load_chapter(&mut self, width: usize) {
+        self.lines = Self::wrap_lines(&self.chapter_contents[self.selected_chapter], width);
+        self.scroll = 0;
     }
 
     pub fn scroll_down(&mut self) {
@@ -49,5 +68,21 @@ impl App {
         }
 
         result
+    }
+    pub fn next_chapter(&mut self) {
+        if self.selected_chapter + 1 < self.chapters.len() {
+            self.selected_chapter += 1;
+        }
+    }
+
+    pub fn prev_chapter(&mut self) {
+        self.selected_chapter = self.selected_chapter.saturating_sub(1);
+    }
+
+    pub fn toggle_focus(&mut self) {
+        self.focus = match self.focus {
+            Focus::Chapters => Focus::Reader,
+            Focus::Reader => Focus::Chapters,
+        };
     }
 }
