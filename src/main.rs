@@ -3,6 +3,7 @@ use epub::doc::EpubDoc;
 
 mod app;
 mod event;
+mod progress;
 mod tui;
 mod ui;
 #[derive(Parser)]
@@ -78,12 +79,23 @@ fn main() {
             let (width, _) = crossterm::terminal::size().unwrap_or((80, 24));
             let reader_width = (width as usize).saturating_sub(27);
             let mut app = app::App::new(chapter_contents, reader_width, chapter_titles);
+            let title = doc
+                .mdata("title")
+                .map(|item| item.value.clone())
+                .unwrap_or_else(|| file.clone());
+
+            if let Some(saved) = progress::load(&title) {
+                app.selected_chapter = saved.chapter;
+                app.load_chapter(reader_width);
+                app.scroll = saved.scroll;
+            }
             let mut terminal = tui::enter().expect("Failed to start TUI");
 
             while !app.should_quit {
                 terminal.draw(|frame| ui::draw(frame, &app)).unwrap();
                 event::handle_events(&mut app, reader_width).unwrap();
             }
+            progress::save(&title, app.selected_chapter, app.scroll);
 
             tui::exit().expect("Failed to restore terminal");
         }
