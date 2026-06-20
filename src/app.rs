@@ -6,12 +6,15 @@ pub struct App {
     pub chapter_contents: Vec<String>,
     pub selected_chapter: usize,
     pub focus: Focus,
+    pub search_query: String,
+    pub search_match: Option<usize>,
 }
 
 #[derive(PartialEq)]
 pub enum Focus {
     Chapters,
     Reader,
+    Search,
 }
 
 impl App {
@@ -25,6 +28,8 @@ impl App {
             chapter_contents,
             selected_chapter: 0,
             focus: Focus::Reader,
+            search_query: String::new(),
+            search_match: None,
         }
     }
 
@@ -39,6 +44,26 @@ impl App {
 
     pub fn scroll_up(&mut self) {
         self.scroll = self.scroll.saturating_sub(1);
+    }
+
+    pub fn search(&mut self) {
+        if self.search_query.is_empty() {
+            self.search_match = None;
+            return;
+        }
+        let query = self.search_query.to_lowercase();
+        let result = self
+            .lines
+            .iter()
+            .enumerate()
+            .skip(self.scroll + 1)
+            .find(|(_, line)| line.to_lowercase().contains(&query))
+            .map(|(i, _)| i);
+
+        if let Some(line_idx) = result {
+            self.scroll = line_idx;
+            self.search_match = Some(line_idx);
+        }
     }
 
     pub fn wrap_lines(content: &str, width: usize) -> Vec<String> {
@@ -83,6 +108,7 @@ impl App {
         self.focus = match self.focus {
             Focus::Chapters => Focus::Reader,
             Focus::Reader => Focus::Chapters,
+            Focus::Search => Focus::Search,
         };
     }
 }
